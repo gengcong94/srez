@@ -1,7 +1,7 @@
 from inputs.prepare import prepare_dirs, ScopeData, get_summary_image, summarize_progress, \
     save_checkpoint
 from inputs import celebA
-from networks import subpixel_model
+from networks import wgan_model
 from train.srez_train import _summarize_progress
 from train.srez_train import _save_checkpoint
 
@@ -30,8 +30,8 @@ def _get_summary_image(feature, label, gene_output, max_samples=10):
         image = tf.concat(axis = 0, values = [image[i,:,:,:] for i in range(max_samples)])
     return image
 
-def gan_subpixel_train():
-    print('\t Train subpixel gan')
+def wgan_train():
+    print('\t Train wgan')
 
     # Create session
     config = tf.ConfigProto(log_device_placement=FLAGS.log_device_placement)
@@ -39,7 +39,6 @@ def gan_subpixel_train():
 
     # Prepare directories
     dirs = prepare_dirs()
-    summary_writer = tf.summary.FileWriter(dirs.log_dir, sess.graph)
 
     # Setup async input queues
     # train_features : down sample images(4x)   train_labels : original images(64 64 3)
@@ -69,32 +68,33 @@ def gan_subpixel_train():
     # Create and initialize model
     [gene_output, gene_var_list, \
      disc_real_output, disc_fake_output, disc_var_list] = \
-            subpixel_model.create_subpixel_model(sess, gene_input_pl, real_images_pl)
+            wgan_model.create_wgan_model(sess, gene_input_pl, real_images_pl)
     # error=train_labels-gene_output
     #import ipdb; ipdb.set_trace()
     
     # generator loss
-    gene_loss = subpixel_model.gan_generator_subpixel_loss__wgan(disc_fake_output,gene_output,
-                                                                  train_features_pl,
-                                                                  real_images_pl)
+    gene_loss = wgan_model.generator_subpixel_loss_wgan(disc_fake_output,gene_output,
+                                                        train_features_pl,
+                                                        real_images_pl)
 
     # Summary
     tf.summary.scalar('gene_loss', gene_loss)
-    summary_gene_loss = tf.summary.FileWriter(dirs.log_dir + '/gene_loss')
-    summary_gene_loss.add_graph(gene_loss.graph)
+    # summary_gene_loss = tf.summary.FileWriter(dirs.log_dir + '/gene_loss')
+    # summary_gene_loss.add_graph(gene_loss.graph)
 
     # discriminator loss
     disc_real_loss, disc_fake_loss = \
-                                     subpixel_model.subpixel_discriminator_loss_wgan(
+                                     wgan_model.discriminator_loss_wgan(
                                          disc_real_output, disc_fake_output)
     disc_loss = tf.add(disc_real_loss, disc_fake_loss, name='disc_loss')
-    d_clip = [v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in disc_var_list]
+    with tf.variable_scope('disc_clip'):
+        d_clip = [v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in disc_var_list]
     # Summary
     tf.summary.scalar('disc_real_loss', disc_real_loss)
     tf.summary.scalar('disc_fake_loss', disc_fake_loss)
     tf.summary.scalar('disc_loss', disc_loss)
-    summary_disc_loss = tf.summary.FileWriter(dirs.log_dir + '/disc_loss')
-    summary_disc_loss.add_graph(disc_loss.graph)
+    # summary_disc_loss = tf.summary.FileWriter(dirs.log_dir + '/disc_loss')
+    # summary_disc_loss.add_graph(disc_loss.graph)
     
     # Optimizer
     # learning_rate_pl  = tf.placeholder(dtype=tf.float32, name='learning_rate')
@@ -105,14 +105,16 @@ def gan_subpixel_train():
                                            FLAGS.decay_steps, FLAGS.decay_rate, staircase=True)
     tf.summary.scalar('learning_rate_pl', learning_rate)
     (gene_minimize, disc_minimize) = \
-            subpixel_model.create_optimizers_wgan(gene_loss, gene_var_list,
-                                         disc_loss, disc_var_list,
-                                         learning_rate)
+            wgan_model.create_optimizers_wgan(gene_loss, gene_var_list,
+                                              disc_loss, disc_var_list,
+                                              learning_rate)
 
     # Save model
     ckpt = tf.train.get_checkpoint_state(dirs.ckpt_dir)
     saver = tf.train.Saver(max_to_keep = 2)
 
+    summary_writer = tf.summary.FileWriter(dirs.log_dir, sess.graph)
+    
     # Train model
     train_data = ScopeData(locals())
     train_model_wgan(train_data)

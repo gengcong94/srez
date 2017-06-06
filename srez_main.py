@@ -19,7 +19,7 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('root_dir', 'results',
                            'Root dir for output files')
 
-tf.app.flags.DEFINE_string('train_dir', 'train',
+tf.app.flags.DEFINE_string('train_dir', 'train4',
                            "Output folder where training logs are dumped.")
 
 tf.app.flags.DEFINE_string('log_dir', 'log',
@@ -31,10 +31,10 @@ tf.app.flags.DEFINE_string('checkpoint_dir', 'checkpoint',
 tf.app.flags.DEFINE_string('train_type', 'gan_gen_subpixel',
                             '''[gan, wgan, gan_gen_subpixel]''')
 
-tf.app.flags.DEFINE_integer('resume', True,
+tf.app.flags.DEFINE_integer('resume', False,
                             "Resume training.")
 
-tf.app.flags.DEFINE_float('gene_l1_factor', 0.5,
+tf.app.flags.DEFINE_float('gene_l1_factor', 0.9,
                           "Multiplier for generator L1 loss term")
 # Learning rate
 tf.app.flags.DEFINE_float('learning_rate_start', 0.00005,
@@ -401,7 +401,9 @@ def main(argv=None):
     elif FLAGS.run == 'train':
         if FLAGS.train_type == 'wgan':
             print("\t Train wgan")
-            wgan_train()
+            sys.path.append('train')
+            importlib.import_module('wgan_train').wgan_train()
+
         elif FLAGS.train_type == 'gan':
             print("\t Train gan")
             gan_train()

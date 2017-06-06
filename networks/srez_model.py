@@ -298,12 +298,8 @@ class Model:
         self.outputs.append(out)
         return self        
 
-    def add_upscale_subpixel(self, r, color = True):
-        """Add subpixel layer for upscaling
-        """
-        assert self.get_output().get_shape().as_list()[-1] == 48, \
-            "Input of subpixel's channel should be 48"
-        out = PS(self.get_output(), r, color)
+    def add_upscale_subpixel(self,num_units, r, color = True):
+        out = PS(self.get_output(), num_units,r, color)
         self.outputs.append(out)
         return self
 
@@ -470,7 +466,7 @@ def create_generator_loss_wgan(disc_output, gene_output, features,labels):
     downscaled = _downscale(gene_output, K)
     
     # subtract real image
-    gene_l1_loss  = tf.reduce_mean(tf.abs(gene_output - labels), name='gene_l1_loss')
+    gene_l1_loss  = tf.reduce_mean(tf.abs(downscaled - features), name='gene_l1_loss')
 
     gene_loss     = tf.add((1.0 - FLAGS.gene_l1_factor) * gene_wgan_loss,
                            FLAGS.gene_l1_factor * gene_l1_loss, name='gene_loss')

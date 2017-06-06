@@ -21,7 +21,7 @@ def _phase_shift(I, r):
     return tf.reshape(X, (bsize, a*r, b*r, 1))
 
 
-def PS(X, r, color=False):
+def PS(X,num, r, color=False):
     """
      Subpixel layer
     
@@ -35,12 +35,19 @@ def PS(X, r, color=False):
     """
     with tf.variable_scope('PS'):
         if color:
-            Xc = tf.split(value = X, num_or_size_splits = 3, axis = 3)
+            Xc = tf.split(value = X, num_or_size_splits =3, axis = 3)
             # Xc = tf.split(3, 3, X)
-            X = tf.concat([_phase_shift(x, r) for x in Xc], 3)
+            X = tf.concat([_phase_shift(x, r) for x in Xc], )
             # X = tf.concat(3, [_phase_shift(x, r) for x in Xc])
         else:
-            X = _phase_shift(X, r)
+            #X = _phase_shift(X, r)
+
+            Xc = tf.split(value = X, num_or_size_splits =num, axis = 3)
+            #X = tf.concat([_phase_shift(x, r) for x in Xc], )
+            # import ipdb; ipdb.set_trace()
+            X = tf.concat([_phase_shift(x, r) for x in Xc], axis = 3)
+            # import ipdb; ipdb.set_trace()
+
     return X
 
 if __name__ == "__main__":

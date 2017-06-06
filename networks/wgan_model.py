@@ -1,9 +1,11 @@
+import os
+
 from .srez_model import Model, _discriminator_model
 import numpy as np
 import tensorflow as tf
 FLAGS = tf.app.flags.FLAGS
 
-def create_subpixel_model(sess, gene_input_pl, real_images_pl, channels = 3):
+def create_wgan_model(sess, gene_input_pl, real_images_pl, channels = 3):
     """
      Create gene and disc networks
     
@@ -96,7 +98,7 @@ def generator_subpixel_network(features, channels):
         gene_vars = list(set(new_vars) - set(old_vars))
 
     return model.get_output(), gene_vars
-def gan_generator_subpixel_loss__wgan(disc_output, gene_output, features,labels):
+def generator_subpixel_loss_wgan(disc_output, gene_output, features,labels):
     # I.e. did we fool the discriminator?
     # cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits = disc_output,
     #                                                         labels = tf.ones_like(disc_output))
@@ -107,12 +109,25 @@ def gan_generator_subpixel_loss__wgan(disc_output, gene_output, features,labels)
     K = int(gene_output.get_shape()[1])//int(features.get_shape()[1])
     assert K == 2 or K == 4 or K == 8    
     downscaled = _downscale(gene_output, K)
+
+    # cosine distance
+    batch_size, h, w, channel = gene_output.shape.as_list()
+    gene_output_unit = tf.reshape(gene_output, [batch_size, -1])
+    gene_output_unit = tf.contrib.layers.unit_norm(inputs = gene_output_unit, dim = 1)
+    labels_unit = tf.reshape(labels, [batch_size, -1])
+    labels_unit = tf.contrib.layers.unit_norm(inputs = labels_unit, dim = 1)
+    gene_cos_loss = tf.losses.cosine_distance(labels = labels_unit,
+                                              predictions = gene_output_unit, dim = 1)
+    
     
     # subtract real image
-    gene_l1_loss  = tf.reduce_mean(tf.abs(gene_output - labels), name='gene_l1_loss')
+    # gene_l1_loss  = tf.reduce_mean(tf.abs(gene_output - labels), name='gene_l1_loss')
+    # gene_loss     = tf.add((1.0 - FLAGS.gene_l1_factor) * gene_wgan_loss,
+    #                        FLAGS.gene_l1_factor * gene_l1_loss, name='gene_loss')
 
     gene_loss     = tf.add((1.0 - FLAGS.gene_l1_factor) * gene_wgan_loss,
-                           FLAGS.gene_l1_factor * gene_l1_loss, name='gene_loss')
+                           FLAGS.gene_l1_factor * gene_cos_loss, name='gene_loss')
+
     return gene_loss
 
 def gan_generator_subpixel_loss(gene_output, real_images_pl,
@@ -134,7 +149,7 @@ def gan_generator_subpixel_loss(gene_output, real_images_pl,
                            gene_l1_factor * gene_l1_loss, name='gene_loss')
 
     return gene_loss
-def subpixel_discriminator_loss_wgan(disc_real_output, disc_fake_output):
+def discriminator_loss_wgan(disc_real_output, disc_fake_output):
     # I.e. did we correctly identify the input as real or not?
     # cross_entropy_real = tf.nn.sigmoid_cross_entropy_with_logits(logits = disc_real_output,
     #                                                              labels = tf.ones_like(disc_real_output))
@@ -185,8 +200,8 @@ def gan_adam_optimizers(gene_loss, gene_var_list,
     return (gene_minimize, disc_minimize)
 
 def create_optimizers_wgan(gene_loss, gene_var_list,
-                      disc_loss, disc_var_list,
-                      learning_rate):    
+                           disc_loss, disc_var_list,
+                           learning_rate):    
     # TBD: Does this global step variable need to be manually incremented? I think so.
     # global_step    = tf.Variable(0, dtype=tf.int64,   trainable=False, name='global_step')
      

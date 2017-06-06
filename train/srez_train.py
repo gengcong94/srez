@@ -3,7 +3,6 @@ import os.path
 import scipy.misc
 import tensorflow as tf
 import time
-
 FLAGS = tf.app.flags.FLAGS
 
 def _get_summary_image(feature, label, gene_output, max_samples=10):
